@@ -35,6 +35,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Node.js (required for Terraform setup action)
+        run: |
+          # Check if Node.js is already installed
+          if ! command -v node &> /dev/null; then
+            echo "Installing Node.js..."
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          else
+            echo "Node.js already installed: $(node --version)"
+          fi
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -55,8 +66,13 @@ jobs:
 
       - name: Install Ansible
         run: |
-          python3 -m pip install --upgrade pip
-          pip3 install ansible
+          if ! command -v ansible &> /dev/null; then
+            echo "Installing Ansible..."
+            python3 -m pip install --upgrade pip
+            pip3 install ansible
+          else
+            echo "Ansible already installed: $(ansible --version | head -n1)"
+          fi
 
       - name: Ansible Syntax Check
         working-directory: ./ansible
@@ -70,6 +86,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install Node.js
+        run: |
+          if ! command -v node &> /dev/null; then
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -101,6 +124,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install Node.js
+        run: |
+          if ! command -v node &> /dev/null; then
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -138,8 +168,10 @@ jobs:
 
       - name: Install Ansible
         run: |
-          python3 -m pip install --upgrade pip
-          pip3 install ansible
+          if ! command -v ansible &> /dev/null; then
+            python3 -m pip install --upgrade pip
+            pip3 install ansible
+          fi
 
       - name: Setup SSH Key
         run: |
@@ -178,6 +210,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install Node.js
+        run: |
+          if ! command -v node &> /dev/null; then
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
