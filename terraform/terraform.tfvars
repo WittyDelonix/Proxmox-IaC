@@ -6,7 +6,7 @@ proxmox_node             = "pve"
 vm_template_name = "ubuntu-cloud-template"
 
 # VM Specifications
-vm_count  = 0
+vm_count  = 1
 vm_cores  = 2
 vm_memory = 1024
 vm_disk_size = "10G"
