@@ -88,7 +88,10 @@ resource "proxmox_vm_qemu" "vm" {
   os_type  = "cloud-init"
   cores    = var.cores
   sockets  = 1
-  cpu      = "host"
+  
+  # FIX 1: Renamed from 'cpu' to 'cpu_type'
+  cpu_type = "host" 
+  
   memory   = var.memory
   scsihw   = "virtio-scsi-pci"
   bootdisk = "scsi0"
@@ -98,10 +101,14 @@ resource "proxmox_vm_qemu" "vm" {
     size     = var.disk_size
     type     = "scsi"
     storage  = var.storage
-    iothread = 1
+    
+    # FIX 2: Changed 1 to true
+    iothread = true 
   }
   
   network {
+    # FIX 3: Added ID
+    id     = 0  
     model  = var.network_model
     bridge = var.network_bridge
   }
@@ -117,8 +124,7 @@ resource "proxmox_vm_qemu" "vm" {
   sshkeys = var.ssh_public_key
   
   ciuser = "ubuntu"
-  
-  tags = var.tags
+  tags   = var.tags
 }
 
 output "vm_id" {
