@@ -76,7 +76,7 @@ jobs:
 
       - name: Ansible Syntax Check
         working-directory: ./ansible
-        run: ansible-playbook playbooks/site.yml --syntax-check
+        run: ansible-playbook /site.yml --syntax-check
 
   terraform-plan:
     name: Terraform Plan
