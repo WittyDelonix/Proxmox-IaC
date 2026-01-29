@@ -76,7 +76,7 @@ jobs:
 
       - name: Ansible Syntax Check
         working-directory: ./ansible
-        run: ansible-playbook /site.yml --syntax-check
+        run: ansible-playbook site.yml --syntax-check
 
   terraform-plan:
     name: Terraform Plan
@@ -192,7 +192,7 @@ jobs:
       - name: Run Ansible Playbook
         working-directory: ./ansible
         run: |
-          ansible-playbook -i inventory/hosts.ini /site.yml
+          ansible-playbook -i inventory/hosts.ini site.yml
 
       - name: Verify Services
         working-directory: ./ansible
