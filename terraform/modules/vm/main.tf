@@ -87,7 +87,6 @@ resource "proxmox_vm_qemu" "vm" {
   agent    = 1
   os_type  = "cloud-init"
   
-  # FIX: CPU settings moved to a block
   cpu {
     cores   = var.cores
     sockets = 1
@@ -98,11 +97,10 @@ resource "proxmox_vm_qemu" "vm" {
   scsihw   = "virtio-scsi-pci"
   bootdisk = "scsi0"
   
-  # FIX: Disk settings updated for v3.x schema
   disk {
-    slot     = "scsi0"  # Must match the controller type (scsi) + index (0)
+    slot     = "scsi0"
     size     = var.disk_size
-    type     = "disk"   # Must be 'disk', 'cdrom', or 'cloudinit'
+    type     = "disk"
     storage  = var.storage
     iothread = true
   }
