@@ -77,6 +77,11 @@ variable "tags" {
   type        = string
   default     = ""
 }
+variable "cipassword" {
+  description = "Password for VMs"
+  type = string
+  default = "password"
+}
 
 resource "proxmox_vm_qemu" "vm" {
   name        = var.vm_name
