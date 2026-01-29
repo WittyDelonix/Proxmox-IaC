@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    proxmox = {
+      source  = "telmate/proxmox"
+      version = "~> 2.9.14"
+    }
+  }
+}
+
 variable "vm_id" {
   description = "VM ID"
   type        = number
