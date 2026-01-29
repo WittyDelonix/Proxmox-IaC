@@ -192,7 +192,7 @@ jobs:
       - name: Run Ansible Playbook
         working-directory: ./ansible
         run: |
-          ansible-playbook -i inventory/hosts.ini playbooks/site.yml
+          ansible-playbook -i inventory/hosts.ini /site.yml
 
       - name: Verify Services
         working-directory: ./ansible
