@@ -1,0 +1,32 @@
+# Proxmox Configuration
+proxmox_api_url          = "https://your-proxmox-server:8006/api2/json"
+proxmox_api_token_id     = "terraform@pam!terraform"
+proxmox_api_token_secret = "your-api-token-secret"
+proxmox_tls_insecure     = true
+proxmox_node             = "pve"
+
+# VM Template Configuration
+vm_template_name = "ubuntu-cloud-template"
+
+# VM Specifications
+vm_count  = 3
+vm_cores  = 2
+vm_memory = 2048
+vm_disk_size = "20G"
+vm_storage = "local-lvm"
+
+# Network Configuration
+vm_network_bridge = "vmbr0"
+vm_network_model  = "virtio"
+vm_ip_base        = "192.168.1"
+vm_ip_start       = 100
+
+# SSH Configuration
+ssh_public_key = "ssh-rsa AAAAB3NzaC1... your-public-key"
+
+# Environment
+environment = "production"
+
+# Monitoring VM Specifications
+monitoring_vm_cores  = 2
+monitoring_vm_memory = 4096

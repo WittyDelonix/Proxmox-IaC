@@ -1,0 +1,16 @@
+[Unit]
+Description=Self-Healing Service for Proxmox Infrastructure
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/self-healing
+EnvironmentFile=/opt/self-healing/self-healing.env
+ExecStart=/usr/bin/python3 /opt/self-healing/self_healing.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

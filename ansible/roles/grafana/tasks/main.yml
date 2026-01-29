@@ -1,0 +1,92 @@
+---
+- name: Install required packages for Grafana
+  apt:
+    name:
+      - apt-transport-https
+      - software-properties-common
+      - wget
+    state: present
+
+- name: Add Grafana GPG key
+  apt_key:
+    url: https://apt.grafana.com/gpg.key
+    state: present
+
+- name: Add Grafana repository
+  apt_repository:
+    repo: deb https://apt.grafana.com stable main
+    state: present
+    filename: grafana
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install Grafana
+  apt:
+    name: grafana
+    state: present
+
+- name: Create Grafana provisioning directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: '0755'
+  loop:
+    - /etc/grafana/provisioning/datasources
+    - /etc/grafana/provisioning/dashboards
+
+- name: Configure Grafana datasource
+  template:
+    src: datasource.yml.j2
+    dest: /etc/grafana/provisioning/datasources/prometheus.yml
+    owner: grafana
+    group: grafana
+    mode: '0644'
+  notify:
+    - restart grafana
+
+- name: Configure Grafana dashboard provisioning
+  template:
+    src: dashboard_provisioning.yml.j2
+    dest: /etc/grafana/provisioning/dashboards/default.yml
+    owner: grafana
+    group: grafana
+    mode: '0644'
+  notify:
+    - restart grafana
+
+- name: Create dashboard directory
+  file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: '0755'
+
+- name: Copy dashboard JSON files
+  template:
+    src: "{{ item }}"
+    dest: /var/lib/grafana/dashboards/
+    owner: grafana
+    group: grafana
+    mode: '0644'
+  with_fileglob:
+    - "../templates/dashboards/*.json"
+  notify:
+    - restart grafana
+
+- name: Enable and start Grafana
+  systemd:
+    name: grafana-server
+    enabled: yes
+    state: started
+
+- name: Allow Grafana port through firewall
+  ufw:
+    rule: allow
+    port: '3000'
+    proto: tcp
+  when: ansible_facts['os_family'] == "Debian"

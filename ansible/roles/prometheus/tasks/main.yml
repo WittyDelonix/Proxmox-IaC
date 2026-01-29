@@ -1,0 +1,96 @@
+---
+- name: Create prometheus user
+  user:
+    name: prometheus
+    shell: /bin/false
+    system: yes
+    create_home: no
+
+- name: Create prometheus directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - /etc/prometheus
+    - /var/lib/prometheus
+
+- name: Download Prometheus
+  get_url:
+    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+    dest: /tmp/prometheus.tar.gz
+    mode: '0644'
+
+- name: Extract Prometheus
+  unarchive:
+    src: /tmp/prometheus.tar.gz
+    dest: /tmp
+    remote_src: yes
+
+- name: Copy Prometheus binaries
+  copy:
+    src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}"
+    dest: /usr/local/bin/
+    remote_src: yes
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - prometheus
+    - promtool
+
+- name: Copy Prometheus console files
+  copy:
+    src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}"
+    dest: /etc/prometheus/
+    remote_src: yes
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+  loop:
+    - consoles
+    - console_libraries
+
+- name: Create Prometheus configuration
+  template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+  notify:
+    - restart prometheus
+
+- name: Create alert rules
+  template:
+    src: alert_rules.yml.j2
+    dest: /etc/prometheus/alert_rules.yml
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+  notify:
+    - restart prometheus
+
+- name: Create Prometheus systemd service
+  template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart prometheus
+
+- name: Enable and start Prometheus
+  systemd:
+    name: prometheus
+    enabled: yes
+    state: started
+
+- name: Allow Prometheus port through firewall
+  ufw:
+    rule: allow
+    port: '9090'
+    proto: tcp
+  when: ansible_facts['os_family'] == "Debian"

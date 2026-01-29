@@ -1,0 +1,7 @@
+{
+{% set comma = joiner(",") %}
+{% for host in groups['app_servers'] %}
+{{ comma() }}
+  "{{ hostvars[host].ansible_host }}:9100": {{ hostvars[host].vm_id }}
+{% endfor %}
+}

@@ -1,0 +1,30 @@
+---
+- name: Configure all servers with common settings
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Install Node Exporter on all servers
+  hosts: node_exporters
+  become: true
+  roles:
+    - node_exporter
+
+- name: Install and configure Prometheus
+  hosts: prometheus
+  become: true
+  roles:
+    - prometheus
+
+- name: Install and configure Grafana
+  hosts: grafana
+  become: true
+  roles:
+    - grafana
+
+- name: Install and configure Self-Healing Service
+  hosts: self_healing
+  become: true
+  roles:
+    - self_healing
