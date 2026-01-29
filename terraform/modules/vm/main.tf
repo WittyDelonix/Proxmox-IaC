@@ -99,7 +99,7 @@ resource "proxmox_vm_qemu" "vm" {
   }
   
   memory   = var.memory
-  scsihw   = "virtio-scsi-pci"
+  scsihw   = "virtio-scsi-single"
   bootdisk = "scsi0"
   
   disk {
@@ -115,7 +115,12 @@ resource "proxmox_vm_qemu" "vm" {
     type    = "cloudinit"
     storage = var.storage
   }
-  
+
+      serial {
+        id = 0
+        type = "socket"
+    }
+
   network {
     id     = 0
     model  = var.network_model
