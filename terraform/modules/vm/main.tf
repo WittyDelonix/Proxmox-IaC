@@ -123,6 +123,7 @@ resource "proxmox_vm_qemu" "vm" {
   
   ciuser = "ubuntu"
   tags   = var.tags
+  cipassword = var.cipassword
 }
 
 output "vm_id" {

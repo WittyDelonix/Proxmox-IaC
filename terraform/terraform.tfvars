@@ -27,3 +27,6 @@ environment = "production"
 # Monitoring VM Specifications
 monitoring_vm_cores  = 2
 monitoring_vm_memory = 1024
+
+# Password for VMS
+cipassword = "vuviet5703"

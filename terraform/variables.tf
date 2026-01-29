@@ -109,3 +109,9 @@ variable "monitoring_vm_memory" {
   type        = number
   default     = 4096
 }
+
+variable "cipassword" {
+  description = "Password of VMs"
+  type        = string
+  default     = "password"
+}
