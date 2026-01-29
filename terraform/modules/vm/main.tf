@@ -91,6 +91,7 @@ resource "proxmox_vm_qemu" "vm" {
   
   agent    = 1
   os_type  = "cloud-init"
+  cloudinit_cdrom_storage = var.storage
   
   cpu {
     cores   = var.cores
