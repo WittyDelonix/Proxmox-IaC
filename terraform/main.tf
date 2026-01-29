@@ -3,7 +3,7 @@ module "app_vms" {
   source   = "./modules/vm"
   count    = var.vm_count
   
-  vm_id          = 100 + count.index
+  vm_id          = 101 + count.index
   vm_name        = "app-vm-${count.index + 1}"
   proxmox_node   = var.proxmox_node
   template_name  = var.vm_template_name
@@ -14,7 +14,7 @@ module "app_vms" {
   network_bridge = var.vm_network_bridge
   network_model  = var.vm_network_model
   ip_address     = "${var.vm_ip_base}.${var.vm_ip_start + count.index}/24"
-  gateway        = "${var.vm_ip_base}.1"
+  gateway        = "${var.vm_ip_base}.2"
   ssh_public_key = var.ssh_public_key
   tags           = "app;${var.environment}"
 }
@@ -29,12 +29,12 @@ module "monitoring_vm" {
   template_name  = var.vm_template_name
   cores          = var.monitoring_vm_cores
   memory         = var.monitoring_vm_memory
-  disk_size      = "30G"
+  disk_size      = "10G"
   storage        = var.vm_storage
   network_bridge = var.vm_network_bridge
   network_model  = var.vm_network_model
   ip_address     = "${var.vm_ip_base}.${var.vm_ip_start + var.vm_count}/24"
-  gateway        = "${var.vm_ip_base}.1"
+  gateway        = "${var.vm_ip_base}.2"
   ssh_public_key = var.ssh_public_key
   tags           = "monitoring;${var.environment}"
 }
@@ -48,13 +48,13 @@ module "self_healing_vm" {
   proxmox_node   = var.proxmox_node
   template_name  = var.vm_template_name
   cores          = 2
-  memory         = 2048
-  disk_size      = "20G"
+  memory         = 1024
+  disk_size      = "10G"
   storage        = var.vm_storage
   network_bridge = var.vm_network_bridge
   network_model  = var.vm_network_model
   ip_address     = "${var.vm_ip_base}.${var.vm_ip_start + var.vm_count + 1}/24"
-  gateway        = "${var.vm_ip_base}.1"
+  gateway        = "${var.vm_ip_base}.2"
   ssh_public_key = var.ssh_public_key
   tags           = "self-healing;${var.environment}"
 }
