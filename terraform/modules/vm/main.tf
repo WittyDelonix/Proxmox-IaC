@@ -91,7 +91,6 @@ resource "proxmox_vm_qemu" "vm" {
   
   agent    = 1
   os_type  = "cloud-init"
-  cloudinit_cdrom_storage = var.storage
   
   cpu {
     cores   = var.cores
@@ -109,6 +108,12 @@ resource "proxmox_vm_qemu" "vm" {
     type     = "disk"
     storage  = var.storage
     iothread = true
+  }
+  
+  disk {
+    slot    = "ide2"
+    type    = "cloudinit"
+    storage = var.storage
   }
   
   network {
