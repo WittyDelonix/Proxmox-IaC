@@ -1,3 +1,10 @@
 ---
-alertmanager_version: "0.26.0"
+
+alertmanager_version: "0.30.1"
+
+
 alertmanager_web_listen_address: "0.0.0.0:9093"
+alertmanager_cluster_listen_address: "0.0.0.0:9094"  # Fixes your current error
+
+alertmanager_storage_path: "/var/lib/alertmanager"
+alertmanager_retention: "120h"
