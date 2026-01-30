@@ -101,7 +101,7 @@ resource "proxmox_vm_qemu" "vm" {
   
   memory   = var.memory
   scsihw   = "virtio-scsi-pci"
-  boot     = "order=scsi0;ide2"
+  boot     = "order=scsi0;ide0"
   
   # UPDATED: Disk configuration fixed
   disk {
