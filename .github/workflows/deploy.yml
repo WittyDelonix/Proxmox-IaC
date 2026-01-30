@@ -67,8 +67,9 @@ jobs:
       - name: Install Ansible
         run: |
           if ! command -v ansible &> /dev/null; then
-            echo "Installing Ansible..."
-          pipx upgrade --include-injected ansible
+            echo "Installing Ansible via APT..."
+            sudo apt-get update
+            sudo apt-get install -y ansible
           else
             echo "Ansible already installed: $(ansible --version | head -n1)"
           fi
