@@ -2,7 +2,7 @@ terraform {
   required_providers {
     proxmox = {
       source  = "telmate/proxmox"
-      version = "3.0.2-rc07"
+      version = "~> 3.0.1-rc1"
     }
   }
 }
@@ -77,10 +77,12 @@ variable "tags" {
   type        = string
   default     = ""
 }
+
 variable "cipassword" {
-  description = "Password for VMs"
+  description = "VM password"
   type = string
   default = "password"
+  
 }
 
 resource "proxmox_vm_qemu" "vm" {
@@ -89,38 +91,49 @@ resource "proxmox_vm_qemu" "vm" {
   target_node = var.proxmox_node
   clone       = var.template_name
   
+  # QEMU Agent
   agent    = 1
+  
+  # OS type for cloud-init
   os_type  = "cloud-init"
   
-  cpu {
-    cores   = var.cores
-    sockets = 1
-    type    = "host"
-  }
+  # CPU configuration
+  cores    = var.cores
+  sockets  = 1
   
+  # Memory
   memory   = var.memory
-  scsihw   = "virtio-scsi-single"
-  bootdisk = "scsi0"
   
-  disk {
-    slot     = "scsi0"
-    size     = var.disk_size
-    type     = "disk"
-    storage  = var.storage
-    iothread = true
-  }
+  # SCSI controller
+  scsihw   = "virtio-scsi-pci"
   
-  disk {
-    slot    = "ide2"
-    type    = "cloudinit"
-    storage = var.storage
-  }
-
-      serial {
-        id = 0
-        type = "socket"
+  # Boot configuration - CRITICAL for v3
+  boot = "order=scsi0"
+  
+  # Disk configuration for v3
+  disks {
+    scsi {
+      scsi0 {
+        disk {
+          size     = var.disk_size
+          storage  = var.storage
+          iothread = true
+          # Ensure disk is bootable
+          replicate = 0
+        }
+      }
     }
-
+    # IDE2 for cloud-init drive (auto-created from clone)
+    ide {
+      ide2 {
+        cloudinit {
+          storage = var.storage
+        }
+      }
+    }
+  }
+  
+  # Network configuration
   network {
     id     = 0
     model  = var.network_model
@@ -130,16 +143,18 @@ resource "proxmox_vm_qemu" "vm" {
   lifecycle {
     ignore_changes = [
       network,
+      disks,
     ]
   }
 
+  # Cloud-init configuration
   ipconfig0 = "ip=${var.ip_address},gw=${var.gateway}"
   
   sshkeys = var.ssh_public_key
   
   ciuser = "ubuntu"
-  tags   = var.tags
   cipassword = var.cipassword
+  tags = var.tags
 }
 
 output "vm_id" {

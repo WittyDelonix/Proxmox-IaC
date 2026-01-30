@@ -110,9 +110,10 @@ jobs:
       - name: Upload Plan
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-plan
+          name: terraform-plan-${{ github.run_id }}
           path: terraform/tfplan
           retention-days: 5
+          if-no-files-found: error
 
   terraform-apply:
     name: Terraform Apply
@@ -148,12 +149,15 @@ jobs:
       - name: Wait for VMs to be ready
         run: sleep 60
 
-      - name: Upload Terraform State
+      - name: Upload Terraform State (optional backup)
         uses: actions/upload-artifact@v4
+        if: always()
+        continue-on-error: true
         with:
-          name: terraform-state
+          name: terraform-state-${{ github.run_id }}
           path: terraform/terraform.tfstate
           retention-days: 30
+          if-no-files-found: warn
 
   ansible-deploy:
     name: Ansible Configuration
@@ -210,13 +214,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      - name: Download Terraform State
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-state
-          path: terraform/
-        continue-on-error: true # In case it's the very first run
 
       - name: Install Node.js
         run: |
