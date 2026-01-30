@@ -29,7 +29,7 @@ receivers:
     webhook_configs:
       - url: 'http://{{ hostvars[groups["self_healing"][0]].ansible_host }}:5000/webhook'
     discord_configs:
-      - webhook_url: ''
+      - webhook_url: 'https://discord.com/api/webhooks/1466089425585967205/4L3pBMC20Ur06fvGvPo7xZjEEYagQE1t5By9v_EDxfbrIL3c9fXkByLTiuKarL_VQLSo'
         send_resolved: true
         max_alerts: 0
 
