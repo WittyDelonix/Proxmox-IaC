@@ -1,20 +1,13 @@
 [Unit]
-Description=Alertmanager
+Description=Prometheus Alertmanager
 Wants=network-online.target
 After=network-online.target
-
 [Service]
 User=alertmanager
 Group=alertmanager
 Type=simple
 ExecStart=/usr/local/bin/alertmanager \
-  --config.file=/etc/alertmanager/alertmanager.yml \
-  --storage.path=/var/lib/alertmanager/ \
-  --web.listen-address={{ alertmanager_web_listen_address }} \
-  --cluster.listen-address={{ alertmanager_cluster_listen_address }}
-
-ExecReload=/bin/kill -HUP $MAINPID
-Restart=on-failure
-
+    --config.file=/etc/alertmanager/alertmanager.yml \
+    --storage.path=/var/lib/alertmanager
 [Install]
 WantedBy=multi-user.target
