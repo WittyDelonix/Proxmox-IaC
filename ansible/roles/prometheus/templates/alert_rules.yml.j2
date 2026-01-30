@@ -2,6 +2,7 @@ groups:
   - name: instance_alerts
     interval: 30s
     rules:
+{% raw %}
       - alert: InstanceDown
         expr: up == 0
         for: 2m
@@ -46,3 +47,4 @@ groups:
         annotations:
           summary: "High network traffic on {{ $labels.instance }}"
           description: "Network receive rate is above 100MB/s. Current value: {{ $value }}"
+{% endraw %}
