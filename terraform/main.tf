@@ -3,7 +3,7 @@ module "app_vms" {
   source = "./modules/vm"
   count  = var.vm_count
 
-  vm_id          = 101 + count.index
+  vm_id          = 120 + count.index
   vm_name        = "app-vm-${count.index + 1}"
   proxmox_node   = var.proxmox_node
   template_name  = var.vm_template_name
