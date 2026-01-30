@@ -1,8 +1,8 @@
 # Application VMs
 module "app_vms" {
-  source   = "./modules/vm"
-  count    = var.vm_count
-  
+  source = "./modules/vm"
+  count  = var.vm_count
+
   vm_id          = 101 + count.index
   vm_name        = "app-vm-${count.index + 1}"
   proxmox_node   = var.proxmox_node
@@ -22,7 +22,7 @@ module "app_vms" {
 # Monitoring VM (Prometheus + Grafana)
 module "monitoring_vm" {
   source = "./modules/vm"
-  
+
   vm_id          = 200
   vm_name        = "monitoring-vm"
   proxmox_node   = var.proxmox_node
@@ -42,7 +42,7 @@ module "monitoring_vm" {
 # Self-Healing Service VM
 module "self_healing_vm" {
   source = "./modules/vm"
-  
+
   vm_id          = 201
   vm_name        = "self-healing-vm"
   proxmox_node   = var.proxmox_node

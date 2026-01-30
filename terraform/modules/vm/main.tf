@@ -79,57 +79,70 @@ variable "tags" {
 }
 variable "cipassword" {
   description = "Password"
-  type = string
-  default = "password"
+  type        = string
+  default     = "password"
 }
-resource "proxmox_vm_qemu" "vm" {
-  name        = var.vm_name
-  vmid        = var.vm_id
-  target_node = var.proxmox_node
-  clone       = var.template_name
-  
-  full_clone = true
-  agent      = 1
-  os_type    = "cloud-init"
-  
-  # CPU configuration
-  cpu {
-    cores   = var.cores
-    sockets = 1
-  }
-  
-  memory   = var.memory
-  scsihw   = "virtio-scsi-pci"
-  # FIXED: Only boot from scsi0, removed ide0 from boot order
-  boot     = "order=scsi0"
-  
-  # Disk configuration
-  disk {
-    slot     = "scsi0"
-    size     = var.disk_size
-    type     = "disk"
-    storage  = var.storage
-    iothread = true
-  }
-  
-  network {
-    id     = 0
-    model  = var.network_model
-    bridge = var.network_bridge
-  }
-  
-  lifecycle {
-    ignore_changes = [
-      network,
-    ]
-  }
+resource "proxmox_vm_qemu" "production" {
+    vmid = var.vm_id
+    name = var.vm_name
+    target_node = var.proxmox_node
 
-  # Cloud-init configuration
-  ipconfig0  = "ip=${var.ip_address},gw=${var.gateway}"
-  sshkeys    = var.ssh_public_key
-  ciuser     = "ubuntu"
-  cipassword = var.cipassword
-  tags       = var.tags
+    clone = var.template_name
+    full_clone = false
+    bios = "ovmf"
+    agent = 1
+    scsihw = "virtio-scsi-single"
+
+    os_type = "cloud-init"
+    memory = var.memory
+
+    vm_state = "running"
+    onboot = true
+    startup = "order=1"
+
+    ipconfig0 = "p=${var.ip_address},gw=${var.gateway}"
+    skip_ipv6 = true
+    ciuser = var.ciuser
+    cipassword = var.cipassword
+    sshkeys = var.ssh_public_key
+    tags = var.tags
+
+    cpu {
+        type = "x86-64-v2-AES"
+        sockets = 1
+        cores = var.cores
+    }
+
+    serial {
+        id = 0
+        type = "socket"
+    }
+
+    network {
+        id = 0
+        model = var.vm_network_model
+        bridge = var.network_bridge
+        firewall = false
+    }
+
+    disks {
+      scsi {
+          scsi0 {
+              disk {
+                  size = var.disk_size
+                  storage = var.storage
+                  replicate = "true"
+              }
+          }
+      }
+      ide {
+          ide0 {
+              cloudinit {
+                  storage = var.storage
+              }
+        }
+      }
+    }
 }
 
 output "vm_id" {

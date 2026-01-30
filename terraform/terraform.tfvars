@@ -1,16 +1,16 @@
 # Proxmox Configuration
-proxmox_tls_insecure     = true
-proxmox_node             = "pve"
+proxmox_tls_insecure = true
+proxmox_node         = "pve"
 
 # VM Template Configuration
 vm_template_name = "ubuntu-cloud-template"
 
 # VM Specifications
-vm_count  = 1
-vm_cores  = 2
-vm_memory = 1024
+vm_count     = 1
+vm_cores     = 2
+vm_memory    = 1024
 vm_disk_size = "10G"
-vm_storage = "local-lvm"
+vm_storage   = "local-lvm"
 
 # Network Configuration
 vm_network_bridge = "vmbr0"
