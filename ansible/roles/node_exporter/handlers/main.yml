@@ -3,7 +3,7 @@
   systemd:
     daemon_reload: yes
 
-- name: restart node_exporter
+- name: Restart node_exporter
   systemd:
     name: node_exporter
     state: restarted

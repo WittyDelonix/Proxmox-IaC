@@ -270,7 +270,7 @@ jobs:
       - name: Wait for VMs to be fully ready
         run: |
           echo "Waiting for VMs to complete initialization..."
-          sleep 120
+          sleep 60
           echo "✅ Wait complete"
 
       - name: Upload Terraform State (optional backup)
