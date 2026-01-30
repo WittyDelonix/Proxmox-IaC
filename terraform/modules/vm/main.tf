@@ -100,7 +100,7 @@ resource "proxmox_vm_qemu" "vm" {
   onboot   = true
   startup  = "order=1"
 
-  ipconfig0  = "p=${var.ip_address},gw=${var.gateway}"
+  ipconfig0  = "ip=${var.ip_address},gw=${var.gateway}"
   skip_ipv6  = true
   ciuser     = "ubuntu"
   cipassword = var.cipassword
