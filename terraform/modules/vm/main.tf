@@ -89,42 +89,29 @@ resource "proxmox_vm_qemu" "vm" {
   target_node = var.proxmox_node
   clone       = var.template_name
   
-  # Full clone (required for disk resize and cloud-init)
   full_clone = true
+  agent      = 1
+  os_type    = "cloud-init"
   
-  # QEMU Agent
-  agent    = 1
+  # UPDATED: CPU configuration moved to block
+  cpu {
+    cores   = var.cores
+    sockets = 1
+  }
   
-  # OS type for cloud-init
-  os_type  = "cloud-init"
-  
-  # CPU configuration
-  cores    = var.cores
-  sockets  = 1
-  
-  # Memory
   memory   = var.memory
-  
-  # SCSI controller
   scsihw   = "virtio-scsi-pci"
+  boot     = "order=scsi0;ide2"
   
-  # Boot order - CRITICAL
-  boot = "order=scsi0;ide2"
-  
-  # Disk configuration for v3 - SIMPLIFIED
+  # UPDATED: Disk configuration fixed
   disk {
-    slot     = 0
+    slot     = "scsi0"      # Explicitly state scsi0
     size     = var.disk_size
-    type     = "scsi"
+    type     = "disk"       # Must be 'disk', not 'scsi'
     storage  = var.storage
     iothread = true
   }
   
-  # Cloud-init drive
-  # This is auto-created when cloning from template
-  # We just need to ensure it exists
-  
-  # Network configuration
   network {
     id     = 0
     model  = var.network_model
@@ -138,13 +125,11 @@ resource "proxmox_vm_qemu" "vm" {
   }
 
   # Cloud-init configuration
-  ipconfig0 = "ip=${var.ip_address},gw=${var.gateway}"
-  
-  sshkeys = var.ssh_public_key
-  
-  ciuser = "ubuntu"
+  ipconfig0  = "ip=${var.ip_address},gw=${var.gateway}"
+  sshkeys    = var.ssh_public_key
+  ciuser     = "ubuntu"
   cipassword = var.cipassword
-  tags = var.tags
+  tags       = var.tags
 }
 
 output "vm_id" {
