@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
 Self-Healing Service for Proxmox Infrastructure
-Monitors Prometheus alerts and automatically heals infrastructure issues
+Receives webhooks from Alertmanager and automatically heals infrastructure issues
 """
 
+from flask import Flask, request, jsonify
 import requests
-import time
 import logging
 import os
 import json
 from datetime import datetime
 from typing import Dict, List
-import subprocess
+import threading
+import time
 
 # Configuration
-PROMETHEUS_URL = os.getenv('PROMETHEUS_URL', 'http://192.168.1.103:9090')
 PROXMOX_API_URL = os.getenv('PROXMOX_API_URL', 'https://192.168.1.10:8006/api2/json')
 PROXMOX_NODE = os.getenv('PROXMOX_NODE', 'pve')
 PROXMOX_TOKEN_ID = os.getenv('PROXMOX_TOKEN_ID', '')
 PROXMOX_TOKEN_SECRET = os.getenv('PROXMOX_TOKEN_SECRET', '')
-CHECK_INTERVAL = int(os.getenv('CHECK_INTERVAL', '60'))  # seconds
+WEBHOOK_PORT = int(os.getenv('WEBHOOK_PORT', '5000'))
 RESTART_COOLDOWN = int(os.getenv('RESTART_COOLDOWN', '300'))  # 5 minutes
 
 # Logging setup
@@ -33,8 +33,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger('SelfHealing')
 
+# Flask app
+app = Flask(__name__)
+
 # Track restart history to prevent restart loops
-restart_history: Dict[str, datetime] = {}
+restart_history: Dict[int, datetime] = {}
 
 
 class ProxmoxAPI:
@@ -84,53 +87,11 @@ class ProxmoxAPI:
             return False
 
 
-class PrometheusMonitor:
-    """Monitor Prometheus for alerts"""
-    
-    def __init__(self):
-        self.prometheus_url = PROMETHEUS_URL
-    
-    def get_active_alerts(self) -> List[Dict]:
-        """Get active alerts from Prometheus"""
-        try:
-            url = f"{self.prometheus_url}/api/v1/alerts"
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            
-            if data['status'] == 'success':
-                alerts = data['data']['alerts']
-                # Filter only firing alerts
-                active_alerts = [a for a in alerts if a['state'] == 'firing']
-                return active_alerts
-            return []
-        except Exception as e:
-            logger.error(f"Error fetching alerts from Prometheus: {e}")
-            return []
-    
-    def query_metric(self, query: str):
-        """Query Prometheus for metrics"""
-        try:
-            url = f"{self.prometheus_url}/api/v1/query"
-            params = {'query': query}
-            response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            
-            if data['status'] == 'success':
-                return data['data']['result']
-            return []
-        except Exception as e:
-            logger.error(f"Error querying Prometheus: {e}")
-            return []
-
-
 class SelfHealingService:
     """Main self-healing service"""
     
     def __init__(self):
         self.proxmox = ProxmoxAPI()
-        self.prometheus = PrometheusMonitor()
         self.vm_mapping = self.load_vm_mapping()
     
     def load_vm_mapping(self) -> Dict[str, int]:
@@ -142,7 +103,6 @@ class SelfHealingService:
             logger.info(f"Loaded VM mapping: {mapping}")
         except FileNotFoundError:
             logger.warning("VM mapping file not found, using default mapping")
-            # Default mapping - update based on your infrastructure
             mapping = {
                 '192.168.1.100:9100': 100,
                 '192.168.1.101:9100': 101,
@@ -161,7 +121,7 @@ class SelfHealingService:
     
     def heal_instance_down(self, alert: Dict):
         """Heal instance down alert"""
-        instance = alert['labels'].get('instance', '')
+        instance = alert.get('labels', {}).get('instance', '')
         logger.warning(f"Instance down detected: {instance}")
         
         if instance in self.vm_mapping:
@@ -182,23 +142,17 @@ class SelfHealingService:
     
     def heal_high_cpu(self, alert: Dict):
         """Heal high CPU usage alert"""
-        instance = alert['labels'].get('instance', '')
+        instance = alert.get('labels', {}).get('instance', '')
         logger.warning(f"High CPU usage detected: {instance}")
         
         if instance in self.vm_mapping:
             vmid = self.vm_mapping[instance]
-            
-            if not self.can_restart_vm(vmid):
-                return
-            
-            # For high CPU, we might want to investigate before rebooting
-            # This is a placeholder for more sophisticated handling
             logger.info(f"High CPU on VM {vmid} - monitoring, manual intervention may be required")
             self.send_notification(f"High CPU alert on VM {vmid} ({instance})")
     
     def heal_high_memory(self, alert: Dict):
         """Heal high memory usage alert"""
-        instance = alert['labels'].get('instance', '')
+        instance = alert.get('labels', {}).get('instance', '')
         logger.warning(f"High memory usage detected: {instance}")
         
         if instance in self.vm_mapping:
@@ -207,55 +161,72 @@ class SelfHealingService:
             self.send_notification(f"High memory alert on VM {vmid} ({instance})")
     
     def send_notification(self, message: str):
-        """Send notification (placeholder for integration with notification systems)"""
+        """Send notification"""
         logger.info(f"NOTIFICATION: {message}")
-        # Add integrations here: Slack, Email, PagerDuty, etc.
         try:
-            # Example: Write to a notifications file
             with open('/var/log/self-healing-notifications.log', 'a') as f:
                 f.write(f"{datetime.now().isoformat()} - {message}\n")
         except Exception as e:
             logger.error(f"Error sending notification: {e}")
     
-    def process_alerts(self):
-        """Process all active alerts"""
-        alerts = self.prometheus.get_active_alerts()
+    def process_alert(self, alert: Dict):
+        """Process a single alert"""
+        alert_name = alert.get('labels', {}).get('alertname', '')
+        status = alert.get('status', '')
         
-        if not alerts:
-            logger.debug("No active alerts")
+        # Only process firing alerts
+        if status != 'firing':
+            logger.debug(f"Ignoring {status} alert: {alert_name}")
             return
         
-        logger.info(f"Processing {len(alerts)} active alerts")
+        try:
+            if alert_name == 'InstanceDown':
+                self.heal_instance_down(alert)
+            elif alert_name == 'HighCPUUsage':
+                self.heal_high_cpu(alert)
+            elif alert_name == 'HighMemoryUsage':
+                self.heal_high_memory(alert)
+            else:
+                logger.debug(f"No healing action for alert: {alert_name}")
+        except Exception as e:
+            logger.error(f"Error processing alert {alert_name}: {e}")
+
+
+# Global service instance
+service = SelfHealingService()
+
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    """Receive alerts from Alertmanager"""
+    try:
+        data = request.get_json()
         
-        for alert in alerts:
-            alert_name = alert['labels'].get('alertname', '')
-            
-            try:
-                if alert_name == 'InstanceDown':
-                    self.heal_instance_down(alert)
-                elif alert_name == 'HighCPUUsage':
-                    self.heal_high_cpu(alert)
-                elif alert_name == 'HighMemoryUsage':
-                    self.heal_high_memory(alert)
-                else:
-                    logger.debug(f"No healing action for alert: {alert_name}")
-            except Exception as e:
-                logger.error(f"Error processing alert {alert_name}: {e}")
-    
-    def run(self):
-        """Main service loop"""
-        logger.info("Self-Healing Service started")
-        logger.info(f"Monitoring Prometheus at: {PROMETHEUS_URL}")
-        logger.info(f"Check interval: {CHECK_INTERVAL}s")
-        logger.info(f"Restart cooldown: {RESTART_COOLDOWN}s")
+        if not data:
+            logger.warning("Received empty webhook payload")
+            return jsonify({'status': 'error', 'message': 'Empty payload'}), 400
         
-        while True:
-            try:
-                self.process_alerts()
-            except Exception as e:
-                logger.error(f"Error in main loop: {e}")
-            
-            time.sleep(CHECK_INTERVAL)
+        logger.info(f"Received webhook with {len(data.get('alerts', []))} alerts")
+        
+        # Process each alert
+        for alert in data.get('alerts', []):
+            service.process_alert(alert)
+        
+        return jsonify({'status': 'success', 'processed': len(data.get('alerts', []))}), 200
+        
+    except Exception as e:
+        logger.error(f"Error processing webhook: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'self-healing',
+        'vm_mapping_count': len(service.vm_mapping)
+    }), 200
 
 
 if __name__ == '__main__':
@@ -263,5 +234,10 @@ if __name__ == '__main__':
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     
-    service = SelfHealingService()
-    service.run()
+    logger.info("Self-Healing Service starting")
+    logger.info(f"Webhook listening on port: {WEBHOOK_PORT}")
+    logger.info(f"Restart cooldown: {RESTART_COOLDOWN}s")
+    logger.info(f"VM mappings loaded: {len(service.vm_mapping)}")
+    
+    # Run Flask app
+    app.run(host='0.0.0.0', port=WEBHOOK_PORT, debug=False)

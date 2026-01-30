@@ -17,6 +17,12 @@
   roles:
     - prometheus
 
+- name: Install and configure Alertmanager
+  hosts: alertmanager
+  become: true
+  roles:
+    - alertmanager
+
 - name: Install and configure Grafana
   hosts: grafana
   become: true

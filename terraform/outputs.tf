@@ -20,9 +20,19 @@ output "prometheus_url" {
   value       = "http://${split("/", module.monitoring_vm.vm_ip)[0]}:9090"
 }
 
+output "alertmanager_url" {
+  description = "Alertmanager URL"
+  value       = "http://${split("/", module.monitoring_vm.vm_ip)[0]}:9093"
+}
+
 output "grafana_url" {
   description = "Grafana URL"
   value       = "http://${split("/", module.monitoring_vm.vm_ip)[0]}:3000"
+}
+
+output "self_healing_webhook_url" {
+  description = "Self-Healing Webhook URL"
+  value       = "http://${split("/", module.self_healing_vm.vm_ip)[0]}:5000/webhook"
 }
 
 output "inventory_file" {

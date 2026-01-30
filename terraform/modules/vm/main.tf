@@ -77,12 +77,10 @@ variable "tags" {
   type        = string
   default     = ""
 }
-
 variable "cipassword" {
-  description = "VM password"
+  description = "Password"
   type = string
   default = "password"
-  
 }
 
 resource "proxmox_vm_qemu" "vm" {
@@ -90,6 +88,9 @@ resource "proxmox_vm_qemu" "vm" {
   vmid        = var.vm_id
   target_node = var.proxmox_node
   clone       = var.template_name
+  
+  # Full clone (required for disk resize and cloud-init)
+  full_clone = true
   
   # QEMU Agent
   agent    = 1
@@ -107,31 +108,21 @@ resource "proxmox_vm_qemu" "vm" {
   # SCSI controller
   scsihw   = "virtio-scsi-pci"
   
-  # Boot configuration - CRITICAL for v3
-  boot = "order=scsi0"
+  # Boot order - CRITICAL
+  boot = "order=scsi0;ide2"
   
-  # Disk configuration for v3
-  disks {
-    scsi {
-      scsi0 {
-        disk {
-          size     = var.disk_size
-          storage  = var.storage
-          iothread = true
-          # Ensure disk is bootable
-          replicate = true
-        }
-      }
-    }
-    # IDE2 for cloud-init drive (auto-created from clone)
-    ide {
-      ide2 {
-        cloudinit {
-          storage = var.storage
-        }
-      }
-    }
+  # Disk configuration for v3 - SIMPLIFIED
+  disk {
+    slot     = 0
+    size     = var.disk_size
+    type     = "scsi"
+    storage  = var.storage
+    iothread = 1
   }
+  
+  # Cloud-init drive
+  # This is auto-created when cloning from template
+  # We just need to ensure it exists
   
   # Network configuration
   network {
@@ -143,7 +134,6 @@ resource "proxmox_vm_qemu" "vm" {
   lifecycle {
     ignore_changes = [
       network,
-      disks,
     ]
   }
 

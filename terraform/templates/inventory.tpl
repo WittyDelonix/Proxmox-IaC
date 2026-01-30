@@ -17,6 +17,9 @@ ${self_healing_vm.name} ansible_host=${self_healing_vm.ip} vm_id=${self_healing_
 [prometheus]
 ${monitoring_vm.name}
 
+[alertmanager]
+${monitoring_vm.name}
+
 [grafana]
 ${monitoring_vm.name}
 

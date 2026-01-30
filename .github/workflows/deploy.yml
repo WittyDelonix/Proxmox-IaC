@@ -202,6 +202,7 @@ jobs:
         working-directory: ./ansible
         run: |
           ansible -i inventory/hosts.ini prometheus -m shell -a "systemctl status prometheus" -b
+          ansible -i inventory/hosts.ini alertmanager -m shell -a "systemctl status alertmanager" -b
           ansible -i inventory/hosts.ini grafana -m shell -a "systemctl status grafana-server" -b
           ansible -i inventory/hosts.ini node_exporters -m shell -a "systemctl status node_exporter" -b
           ansible -i inventory/hosts.ini self_healing -m shell -a "systemctl status self-healing" -b
@@ -244,8 +245,8 @@ jobs:
       - name: Deployment Status
         run: |
           if [ "${{ needs.terraform-apply.result }}" == "success" ] && [ "${{ needs.ansible-deploy.result }}" == "success" ]; then
-            echo "Deployment completed successfully!"
+            echo "✅ Deployment completed successfully!"
           else
-            echo "Deployment failed. Check the logs for details."
+            echo "❌ Deployment failed. Check the logs for details."
             exit 1
           fi
