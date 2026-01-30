@@ -117,7 +117,7 @@ resource "proxmox_vm_qemu" "vm" {
     size     = var.disk_size
     type     = "scsi"
     storage  = var.storage
-    iothread = 1
+    iothread = true
   }
   
   # Cloud-init drive
