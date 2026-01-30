@@ -42,6 +42,12 @@
     enabled: yes
     state: started
 
+- name: Ensure UFW is installed
+  apt:
+    name: ufw
+    state: present
+  when: ansible_facts['os_family'] == "Debian"
+
 - name: Allow Node Exporter port through firewall
   ufw:
     rule: allow
