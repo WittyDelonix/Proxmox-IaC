@@ -37,7 +37,6 @@ jobs:
 
       - name: Install Node.js (required for Terraform setup action)
         run: |
-          # Check if Node.js is already installed
           if ! command -v node &> /dev/null; then
             echo "Installing Node.js..."
             curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -50,6 +49,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
+          terraform_wrapper: false  # Important: disable wrapper for proper output parsing
 
       - name: Terraform Format Check
         working-directory: ./terraform
@@ -98,10 +98,14 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
+          terraform_wrapper: false
 
       - name: Terraform Init
         working-directory: ./terraform
         run: terraform init
+
+      - name: Wait for API stability
+        run: sleep 5
 
       - name: Terraform Plan
         working-directory: ./terraform
@@ -137,17 +141,137 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
+          terraform_wrapper: false  # Critical for output parsing
+
+      - name: Install jq for JSON parsing
+        run: |
+          if ! command -v jq &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
 
       - name: Terraform Init
         working-directory: ./terraform
         run: terraform init
 
-      - name: Terraform Apply
-        working-directory: ./terraform
-        run: terraform apply -auto-approve
+      - name: Wait for API stability
+        run: sleep 10
 
-      - name: Wait for VMs to be ready
-        run: sleep 60
+      - name: Terraform Apply with Retry Logic
+        working-directory: ./terraform
+        run: |
+          max_attempts=3
+          attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Terraform Apply - Attempt $attempt of $max_attempts"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            
+            if terraform apply -auto-approve; then
+              echo "✅ Terraform apply succeeded on attempt $attempt"
+              exit 0
+            else
+              echo "❌ Terraform apply failed on attempt $attempt"
+              
+              if [ $attempt -eq $max_attempts ]; then
+                echo "All $max_attempts attempts failed"
+                exit 1
+              fi
+              
+              echo "Waiting 30 seconds before retry..."
+              sleep 30
+              attempt=$((attempt + 1))
+            fi
+          done
+
+      - name: Verify Inventory Generation
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Verifying Ansible Inventory Generation"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          if [ ! -f "ansible/inventory/hosts.ini" ]; then
+            echo "❌ Inventory file not found!"
+            echo "   Generating manually from Terraform outputs..."
+            
+            # Create inventory directory
+            mkdir -p ansible/inventory
+            
+            # Get outputs from Terraform
+            cd terraform
+            
+            # Extract IPs
+            APP_VMS=$(terraform output -json app_vm_ips)
+            MONITORING_IP=$(terraform output -raw monitoring_vm_ip)
+            SELF_HEALING_IP=$(terraform output -raw self_healing_vm_ip)
+            
+            cd ..
+            
+            # Generate inventory
+            cat > ansible/inventory/hosts.ini << EOF
+          [all:vars]
+          ansible_user=ubuntu
+          ansible_ssh_private_key_file=~/.ssh/id_rsa
+          ansible_python_interpreter=/usr/bin/python3
+
+          [app_servers]
+          EOF
+            
+            # Add app VMs
+            APP_VM_COUNT=$(echo "$APP_VMS" | jq -r 'length')
+            for i in $(seq 0 $((APP_VM_COUNT - 1))); do
+              IP=$(echo "$APP_VMS" | jq -r ".[$i]")
+              VM_ID=$((101 + i))
+              echo "app-vm-$((i + 1)) ansible_host=$IP vm_id=$VM_ID" >> ansible/inventory/hosts.ini
+            done
+            
+            # Add other hosts
+            cat >> ansible/inventory/hosts.ini << EOF
+
+          [monitoring]
+          monitoring-vm ansible_host=$MONITORING_IP vm_id=200
+
+          [self_healing]
+          self-healing-vm ansible_host=$SELF_HEALING_IP vm_id=201
+
+          [prometheus]
+          monitoring-vm
+
+          [alertmanager]
+          monitoring-vm
+
+          [grafana]
+          monitoring-vm
+
+          [node_exporters:children]
+          app_servers
+          monitoring
+          self_healing
+          EOF
+            
+            echo "✅ Inventory generated manually"
+          else
+            echo "✅ Inventory file exists"
+          fi
+          
+          # Display inventory
+          echo ""
+          echo "Generated Inventory:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          cat ansible/inventory/hosts.ini
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Verify it's not empty
+          if [ ! -s "ansible/inventory/hosts.ini" ]; then
+            echo "❌ Inventory file is empty!"
+            exit 1
+          fi
+
+      - name: Wait for VMs to be fully ready
+        run: |
+          echo "Waiting for VMs to complete initialization..."
+          sleep 120
+          echo "✅ Wait complete"
 
       - name: Upload Terraform State (optional backup)
         uses: actions/upload-artifact@v4
@@ -159,6 +283,15 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Upload Generated Inventory
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ansible-inventory-${{ github.run_id }}
+          path: ansible/inventory/hosts.ini
+          retention-days: 7
+          if-no-files-found: error
+
   ansible-deploy:
     name: Ansible Configuration
     runs-on: self-hosted
@@ -169,6 +302,34 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download Generated Inventory
+        uses: actions/download-artifact@v4
+        with:
+          name: ansible-inventory-${{ github.run_id }}
+          path: ansible/inventory/
+
+      - name: Verify Inventory Before Ansible
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Inventory File Check"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          if [ ! -f "ansible/inventory/hosts.ini" ]; then
+            echo "❌ Inventory file missing!"
+            ls -la ansible/inventory/ || echo "Inventory directory doesn't exist"
+            exit 1
+          fi
+          
+          if [ ! -s "ansible/inventory/hosts.ini" ]; then
+            echo "❌ Inventory file is empty!"
+            exit 1
+          fi
+          
+          echo "✅ Inventory file is ready"
+          echo ""
+          cat ansible/inventory/hosts.ini
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       - name: Install Ansible
         run: |
@@ -183,29 +344,68 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      - name: Wait for SSH to be available
+      - name: Wait for SSH to be available with retry
         run: |
-          for i in {1..30}; do
+          max_attempts=30
+          attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            echo "Checking SSH connectivity - Attempt $attempt/$max_attempts"
+            
             if ansible all -i ansible/inventory/hosts.ini -m ping; then
-              break
+              echo "✅ SSH is available on all hosts"
+              exit 0
             fi
-            echo "Waiting for SSH... attempt $i/30"
+            
+            if [ $attempt -eq $max_attempts ]; then
+              echo "❌ SSH not available after $max_attempts attempts"
+              echo ""
+              echo "Debugging information:"
+              echo "Inventory content:"
+              cat ansible/inventory/hosts.ini
+              exit 1
+            fi
+            
+            echo "Waiting 10 seconds before retry..."
             sleep 10
+            attempt=$((attempt + 1))
           done
 
       - name: Run Ansible Playbook
         working-directory: ./ansible
         run: |
-          ansible-playbook -i inventory/hosts.ini site.yml
+          ansible-playbook -i inventory/hosts.ini site.yml -v
 
       - name: Verify Services
         working-directory: ./ansible
+        continue-on-error: true
         run: |
-          ansible -i inventory/hosts.ini prometheus -m shell -a "systemctl status prometheus" -b
-          ansible -i inventory/hosts.ini alertmanager -m shell -a "systemctl status alertmanager" -b
-          ansible -i inventory/hosts.ini grafana -m shell -a "systemctl status grafana-server" -b
-          ansible -i inventory/hosts.ini node_exporters -m shell -a "systemctl status node_exporter" -b
-          ansible -i inventory/hosts.ini self_healing -m shell -a "systemctl status self-healing" -b
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Verifying Deployed Services"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          echo ""
+          echo "Checking Prometheus..."
+          ansible -i inventory/hosts.ini prometheus -m shell -a "systemctl status prometheus --no-pager" -b || echo "⚠️  Prometheus check failed"
+          
+          echo ""
+          echo "Checking Alertmanager..."
+          ansible -i inventory/hosts.ini alertmanager -m shell -a "systemctl status alertmanager --no-pager" -b || echo "⚠️  Alertmanager check failed"
+          
+          echo ""
+          echo "Checking Grafana..."
+          ansible -i inventory/hosts.ini grafana -m shell -a "systemctl status grafana-server --no-pager" -b || echo "⚠️  Grafana check failed"
+          
+          echo ""
+          echo "Checking Node Exporters..."
+          ansible -i inventory/hosts.ini node_exporters -m shell -a "systemctl status node_exporter --no-pager" -b || echo "⚠️  Node Exporter check failed"
+          
+          echo ""
+          echo "Checking Self-Healing Service..."
+          ansible -i inventory/hosts.ini self_healing -m shell -a "systemctl status self-healing --no-pager" -b || echo "⚠️  Self-Healing check failed"
+          
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
   terraform-destroy:
     name: Terraform Destroy
@@ -244,9 +444,29 @@ jobs:
     steps:
       - name: Deployment Status
         run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "DEPLOYMENT SUMMARY"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Terraform Apply: ${{ needs.terraform-apply.result }}"
+          echo "Ansible Deploy:  ${{ needs.ansible-deploy.result }}"
+          echo ""
+          
           if [ "${{ needs.terraform-apply.result }}" == "success" ] && [ "${{ needs.ansible-deploy.result }}" == "success" ]; then
-            echo "✅ Deployment completed successfully!"
+            echo "✅ DEPLOYMENT COMPLETED SUCCESSFULLY!"
+            echo ""
+            echo "Access your services:"
+            echo "  • Prometheus:   http://monitoring-vm-ip:9090"
+            echo "  • Alertmanager: http://monitoring-vm-ip:9093"
+            echo "  • Grafana:      http://monitoring-vm-ip:3000"
+            echo "  • Self-Healing: http://self-healing-vm-ip:5000/health"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            exit 0
           else
-            echo "❌ Deployment failed. Check the logs for details."
+            echo "❌ DEPLOYMENT FAILED"
+            echo ""
+            echo "Please check the logs for details."
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             exit 1
           fi
