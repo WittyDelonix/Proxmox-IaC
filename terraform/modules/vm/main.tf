@@ -85,7 +85,7 @@ variable "cipassword" {
 
 resource "proxmox_vm_qemu" "production" {
     vmid = var.vm_id
-    name = var.name
+    name = var.vm_name
     target_node = var.proxmox_node
 
     clone = var.template_name
@@ -130,7 +130,7 @@ resource "proxmox_vm_qemu" "production" {
       scsi {
           scsi0 {
               disk {
-                  size = each.value.size
+                  size = var.disk_size
                   storage = var.storage
                   replicate = "true"
               }
