@@ -82,7 +82,7 @@ variable "cipassword" {
   type        = string
   default     = "password"
 }
-resource "proxmox_vm_qemu" "production" {
+resource "proxmox_vm_qemu" "vm" {
     vmid = var.vm_id
     name = var.vm_name
     target_node = var.proxmox_node
@@ -102,7 +102,7 @@ resource "proxmox_vm_qemu" "production" {
 
     ipconfig0 = "p=${var.ip_address},gw=${var.gateway}"
     skip_ipv6 = true
-    ciuser = var.ciuser
+    ciuser = "ubuntu"
     cipassword = var.cipassword
     sshkeys = var.ssh_public_key
     tags = var.tags
@@ -120,7 +120,7 @@ resource "proxmox_vm_qemu" "production" {
 
     network {
         id = 0
-        model = var.vm_network_model
+        model = var.network_model
         bridge = var.network_bridge
         firewall = false
     }
