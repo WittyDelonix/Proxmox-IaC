@@ -119,7 +119,7 @@ resource "proxmox_vm_qemu" "vm" {
           storage  = var.storage
           iothread = true
           # Ensure disk is bootable
-          replicate = 0
+          replicate = true
         }
       }
     }
