@@ -3,7 +3,7 @@
 ### Trên máy cục bộ / GitHub runner
 
 | Công cụ | Phiên bản tối thiểu |
-|---|---|---|
+|---|---|
 | Git | Bất kỳ |
 | Terraform | ≥ 1.5.0 |
 | Python 3 + pip | ≥ 3.8 |
